@@ -58,8 +58,8 @@ Liệt kê phần bonus đã làm, file bằng chứng trong `student/bonus/` v�
 Ghi rõ, kể cả khi không dùng ("Không dùng AI"). Xem [RULES.md](../RULES.md) mục 2.
 
 - Công cụ đã dùng (ChatGPT, Copilot, Claude, …): OpenAI Codex.
-- Dùng cho phần nào (hàm, câu hỏi, debug): CP0 — đọc yêu cầu, chuẩn bị môi trường Python 3.14, cấu hình đường dẫn dữ liệu và điền thông tin học viên. Cập nhật phạm vi hỗ trợ sau mỗi checkpoint.
-- Cách bạn đã kiểm tra lại (pytest, chạy Waymo, đối chiếu công thức): CP0 — chạy bộ test gốc trên Python 3.14.7 với PYTHONUTF8=1: 82 passed, 46 xfailed do Part E–H còn TODO, không có failed/error; CLI fusion-run-lab --help chạy được. Đọc thành công frame đầu của segment đã tải và nạp được 186 tensor trong weights bằng torch.load(weights_only=True). Chưa chạy pipeline Waymo hay tạo metrics; cập nhật kiểm chứng sau từng checkpoint.
+- Dùng cho phần nào (hàm, câu hỏi, debug): CP0 — đọc yêu cầu, chuẩn bị môi trường Python 3.14, cấu hình đường dẫn dữ liệu và điền thông tin học viên. CP1 — hỗ trợ cài đặt và giải thích sáu hàm Part E trong kalman.py: build_F, build_Q, ekf_predict, innovation, innovation_covariance, ekf_update. Cập nhật phạm vi hỗ trợ sau mỗi checkpoint.
+- Cách bạn đã kiểm tra lại (pytest, chạy Waymo, đối chiếu công thức): CP0 — chạy bộ test gốc trên Python 3.14.7 với PYTHONUTF8=1: 82 passed, 46 xfailed do Part E–H còn TODO, không có failed/error; CLI fusion-run-lab --help chạy được. Đọc thành công frame đầu của segment đã tải và nạp được 186 tensor trong weights bằng torch.load(weights_only=True). CP1 — test_kalman.py: 4 passed, không còn xfailed ở Part E. Kiểm tra thêm tham số mặc định lấy động từ cấu hình, dt/q bằng 0, đầu vào ndarray/matrix, giá trị innovation/S và việc không sửa đầu vào. Đối chiếu F vận tốc không đổi, Q = dt * q * I_6, predict và update với công thức trong đề; dùng solve để tính K thay vì tạo nghịch đảo S. Chưa chạy pipeline Waymo hay tạo metrics; cập nhật kiểm chứng sau từng checkpoint.
 
 ## Checklist nộp
 
