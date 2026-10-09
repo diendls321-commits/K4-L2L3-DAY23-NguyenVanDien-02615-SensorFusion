@@ -1,6 +1,6 @@
 # Báo cáo bài nộp — Day 23 Sensor Fusion Lab
 
-> Điền file này rồi commit. Cách nộp: [hướng dẫn nộp](../SUBMISSION.md).
+> Báo cáo CP6. Cách nộp: [hướng dẫn nộp](../SUBMISSION.md).
 
 ## Thông tin học viên
 
@@ -8,7 +8,7 @@
 - MSSV: 02615
 - Email: diendls321@gmail.com
 - Link repo (fork): https://github.com/diendls321-commits/K4-L2L3-DAY23-NguyenVanDien-02615-SensorFusion
-- Commit hash nộp (`git rev-parse HEAD`):
+- Commit hash nộp (`git rev-parse HEAD`): lấy SHA 40 ký tự của commit CP6 sau khi commit và push; đối chiếu tại [commit mới nhất trên main](https://github.com/diendls321-commits/K4-L2L3-DAY23-NguyenVanDien-02615-SensorFusion/commits/main). SHA được gửi cùng link repo trong hội thoại để học viên nộp LMS. File nằm trong chính commit CP6 nên không ghi SHA của chính nó trước khi commit.
 
 ## Tóm tắt kết quả
 
@@ -39,12 +39,33 @@ File per-mode `metrics_lidar.json`, `metrics_fused.json`, `grade_run_lidar.log`,
 ## Giải thích ngắn (Parts E–H — tự viết)
 
 1. Khác biệt đo lidar 3D và camera 2D trong EKF (`z`, `R`)?
+
+   LiDAR đo tâm hộp 3D: `z` có kích thước 3×1, đơn vị mét; mặc định `R = diag(0.1², 0.1², 0.1²)` m². Mô hình đo tuyến tính lấy vị trí từ trạng thái 6 chiều `[x, y, z, vx, vy, vz]`, với `H` kích thước 3×6 sau đổi hệ tọa độ. Camera đo tâm hộp ảnh: `z = [u, v]ᵀ` có kích thước 2×1, đơn vị pixel; `R = diag(5², 5²)` pixel². Hàm chiếu pinhole `h(x)` phi tuyến nên EKF dùng Jacobian `H` kích thước 2×6. Cả hai cập nhật cùng trạng thái, nhưng innovation và covariance phải được tính theo mô hình và đơn vị của từng sensor; không ghép trực tiếp tọa độ pixel với tọa độ mét.
+
 2. Vì sao cần gating Mahalanobis trước khi gán?
+
+   `d² = γᵀ S⁻¹ γ`, với `γ = z − h(x)` và `S = HPHᵀ + R`, đo độ bất thường của residual theo độ bất định và tương quan giữa các chiều. Khoảng cách Euclidean không xét covariance: cùng một residual có thể hợp lý với track chưa chắc chắn nhưng rất bất thường với track đã ổn định. Loại cặp ngoài FOV trước khi chiếu, rồi chỉ giữ cặp có `d² ≤ chi2.ppf(0.995, dim_meas)` (3 chiều cho LiDAR, 2 cho camera). Các cặp bị loại có cost vô cùng nên bước gán greedy không chọn chúng. Gating giảm ghép sai nhưng không bảo đảm mọi cặp trong gate đều đúng.
+
 3. Pipeline là track-then-fuse hay fuse-then-track? Chỉ ra trên log `fusion-run-lab`.
+
+   Pipeline là **track-then-fuse**: mỗi frame predict một lần cho các track hiện có, association/update LiDAR và quản lý vòng đời, rồi association/update camera trong mode fused. Thứ tự này thể hiện trực tiếp trong [run_lab.py](../platform/fusion_lab/scripts/run_lab.py), các lệnh `KF.predict`, `associate_and_update(..., lidar_sensor)` và `associate_and_update(..., camera_sensor)`; association không predict thêm.
+
+   Trong [grade_run.log](artifacts/grade_run.log), cả hai mode có `confirmed = 0` ở frame 0–3, đến frame 4 có `confirmed = 2`, `matches = 2`, `ghosts = 0`, `misses = 0`. Ở frame 4, `sum_sq_err` là 0.011281520740472877 m² cho LiDAR và 0.031987316784416 m² cho fused: camera có thể làm sai số một frame tăng, dù RMSE toàn segment giảm từ 0.15032268781360134 xuống 0.1358667883353908 m. Log ghi thống kê đánh giá theo frame, không ghi thứ tự lời gọi predict/update; vì vậy dùng mã runner để xác nhận thứ tự, và log để đối chiếu kết quả hai mode.
+
 4. Nếu camera lệch calibration, triệu chứng gì trên innovation/residual?
+
+   Sai extrinsics hoặc intrinsics làm `h(x)` lệch so với tâm ảnh đo được. Innovation camera có thể có độ lệch có hệ thống theo vị trí hoặc hướng nhìn thay vì dao động quanh 0; Mahalanobis tăng và nhiều cặp bị gate loại. Nếu residual vẫn lọt gate, update có thể kéo trạng thái về vị trí sai và làm RMSE fused tăng. Đây là phân tích từ mô hình đo; tôi không thực hiện thử nghiệm thay calibration vì chỉ làm phần bắt buộc.
+
 5. Vì sao `associate_and_update(..., sensor)` cần sensor tường minh ở frame rỗng?
    Giải thích vì sao lidar quyết định score/init/delete còn camera chỉ EKF update.
+
+   Khi danh sách đo rỗng, không thể lấy `meas_list[0].sensor` để biết lượt xử lý thuộc LiDAR hay camera. Truyền `sensor` tường minh giúp association luôn gọi `manager.manage_tracks(...)` với đúng sensor, kể cả không có đo hoặc không ghép được cặp nào. Trong lượt LiDAR, track không ghép và nằm trong FOV bị trừ score; đo LiDAR chưa gán có thể tạo track, và các track được xét xóa theo score/covariance. Camera chỉ hiệu chỉnh EKF cho cặp ghép: manager bỏ qua cập nhật score và quản lý vòng đời ở lượt camera. Vì vậy một frame camera rỗng không làm track mất điểm hoặc bị xóa. Quy tắc này tránh tính hai hit/miss tồn tại cho cùng một frame.
+
 6. Nêu điều kiện xác nhận, giữ confirmed sau miss, và điều kiện xóa track.
+
+   Track mới từ LiDAR có score `1/window`, trạng thái `initialized`. Mỗi hit LiDAR cộng `1/window`, chặn trên tại 1; miss trong FOV trừ `1/window`. Hit khi chưa đủ ngưỡng chuyển track sang `tentative`; score **lớn hơn** `confirmed_threshold` thì thành `confirmed`. Mặc định `window = 6`, ngưỡng 0.8: năm frame hit liên tiếp tính cả frame khởi tạo cho score 5/6 và xác nhận ở frame thứ năm, khớp hai track ở frame 4 trong log.
+
+   Miss không hạ một track confirmed xuống tentative: trạng thái được giữ cho đến khi track bị xóa. Ví dụ score từ 1 xuống 5/6 sau một miss vẫn giữ confirmed. Xóa nếu `P[0,0] > max_P` hoặc `P[1,1] > max_P` (mặc định 9 m²), hoặc confirmed có score **nhỏ hơn** `delete_threshold` (0.6), hoặc track chưa confirmed có score **≤ 0**. Việc xét xóa chỉ diễn ra trong lượt LiDAR; camera không tạo/xóa track và không đổi score.
 
 ## Bonus (không bắt buộc)
 
@@ -55,28 +76,18 @@ Liệt kê phần bonus đã làm, file bằng chứng trong `student/bonus/` v�
 
 ## Khai báo sử dụng AI (bắt buộc)
 
-Ghi rõ, kể cả khi không dùng ("Không dùng AI"). Xem [RULES.md](../RULES.md) mục 2.
-
 - Công cụ đã dùng (ChatGPT, Copilot, Claude, …): OpenAI Codex.
-- Dùng cho phần nào (hàm, câu hỏi, debug): CP0 — đọc yêu cầu, chuẩn bị môi trường Python 3.14, cấu hình đường dẫn dữ liệu và điền thông tin học viên. CP1 — hỗ trợ cài đặt và giải thích sáu hàm Part E trong kalman.py: build_F, build_Q, ekf_predict, innovation, innovation_covariance, ekf_update. CP2 — hỗ trợ cài đặt và giải thích ba hàm Part G trong camera_fusion.py: is_in_field_of_view, camera_measurement_prediction, build_camera_measurement. Cập nhật phạm vi hỗ trợ sau mỗi checkpoint.
-- Cách bạn đã kiểm tra lại (pytest, chạy Waymo, đối chiếu công thức): CP0 — chạy bộ test gốc trên Python 3.14.7 với PYTHONUTF8=1: 82 passed, 46 xfailed do Part E–H còn TODO, không có failed/error; CLI fusion-run-lab --help chạy được. Đọc thành công frame đầu của segment đã tải và nạp được 186 tensor trong weights bằng torch.load(weights_only=True). CP1 — test_kalman.py: 4 passed, không còn xfailed ở Part E. Kiểm tra thêm tham số mặc định lấy động từ cấu hình, dt/q bằng 0, đầu vào ndarray/matrix, giá trị innovation/S và việc không sửa đầu vào. Đối chiếu F vận tốc không đổi, Q = dt * q * I_6, predict và update với công thức trong đề; dùng solve để tính K thay vì tạo nghịch đảo S. CP2 — chạy đúng nhóm test camera trong CHECKPOINTS.md: 20 passed, không failed/error/xfailed; gồm FOV theo calibration, projection, dữ liệu không hợp lệ và Jacobian so với sai phân hữu hạn. Kiểm tra thêm FOV LiDAR, đầu vào ndarray/matrix, hai biên FOV camera, độ sâu đúng 1e-6, ngữ cảnh lỗi và covariance đọc động từ tham số nhiễu pixel. Chưa chạy pipeline Waymo hay tạo metrics; cập nhật kiểm chứng sau từng checkpoint.
-
-- Phạm vi hỗ trợ CP3: Cài đặt và giải thích năm hàm Part F trong association.py: mahalanobis_distance, chi2_gate, association_cost_matrix, pick_next_pair, associate_and_update. Nạp Kalman bằng load_workspace_module("kalman"), kiểm tra FOV trước khoảng cách, gán greedy rồi gọi quản lý track với sensor tường minh; không predict thêm trong association.
-- Kiểm chứng CP3: Nhóm test Mahalanobis/greedy/out_of_fov/association trong CHECKPOINTS.md đạt 9 passed, không failed/error/xfailed. Kiểm tra thêm ngưỡng chi-square theo số chiều đo và xác suất cấu hình, loại khoảng cách không hữu hạn/âm, ma trận rỗng 0x0/0x2/2x0, thứ tự greedy nhiều cặp, bảo toàn danh sách đầu vào và không gọi predict. Part H còn TODO; chưa chạy pipeline Waymo hay tạo metrics.
-
-- Phạm vi hỗ trợ CP4: Cài đặt và giải thích ba hàm Part H trong track_management.py: init_track_state_from_meas, update_track_score, should_delete_track. Khởi tạo vị trí/covariance từ đo LiDAR sau đổi sang hệ xe, vận tốc bằng 0 với phương sai sigma^2; hit/miss đổi score theo window, giữ confirmed sau miss và xoá theo score hoặc phương sai ngang. Từ chối khởi tạo bằng đo camera.
-- Kiểm chứng CP4: Chạy toàn bộ student/tests trên Python 3.14.7 với PYTHONUTF8=1: 128 passed, không failed/error/xfailed. Các test xác nhận camera không đổi score/khởi tạo/xoá track, miss ngoài FOV LiDAR không giảm score và confirmed được giữ sau miss. Kiểm tra thêm khởi tạo với phép xoay 90 độ và tịnh tiến, covariance vị trí có nhiễu khác nhau theo trục, bình phương sigma vận tốc, window cấu hình, đầu vào ndarray/matrix và bảo toàn đo gốc. Toàn bộ Part E–H đã hoàn thành; chưa chạy pipeline Waymo hay tạo metrics.
-
-- Phạm vi hỗ trợ CP5: Chạy thử compare trên frame 0–20, sau đó đặt paths.yaml thành frame 0–198 và chạy compare với seed 0 trên segment/weights đã tải. Chạy Python 3.14.7, PyTorch CPU với OMP_NUM_THREADS=4 và MKL_NUM_THREADS=4; không sửa thuật toán hay tham số tracking. Điền kết quả và nhận xét từ metrics/log thực tế.
-- Kiểm chứng CP5: Đủ sáu artifacts do runner sinh; validate_metrics_records xác nhận file gộp có 398 record và mỗi mode có 199 record, đúng frame 0–198, không thiếu/trùng, mọi invariant và tổng khớp metrics. Hai log riêng đúng bằng phần mode tương ứng trong log gộp; detection, seed và segment nhất quán giữa hai mode. Cả hai mode đạt ngưỡng RMSE ≤ 0.45 m, precision_track ≥ 0.75, coverage ≥ 0.70 và fused − lidar ≤ 0.05 m. Không sửa tay artifacts; .env, paths.yaml, dữ liệu và weights chỉ lưu local.
+- Dùng cho phần nào (hàm, câu hỏi, debug): Codex đọc yêu cầu và cấu hình môi trường Python 3.14; viết toàn bộ các hàm bắt buộc Part E–H trong `kalman.py`, `camera_fusion.py`, `association.py`, `track_management.py`; rà soát, giải thích và kiểm tra các hàm. Codex chạy pipeline Waymo, tổng hợp số liệu thực tế, soạn sáu câu trả lời và báo cáo này, thực hiện commit/push theo từng checkpoint. Học viên cung cấp thông tin, dữ liệu, lựa chọn phạm vi bắt buộc và duyệt tiến độ trong hội thoại. Không làm bonus.
+- Cách kiểm tra lại (pytest, chạy Waymo, đối chiếu công thức): Codex thực hiện các kiểm tra trên máy học viên, không khẳng định học viên đã tự kiểm tra độc lập. Bộ `student/tests` đạt 128 passed, không failed/error/xfailed trên Python 3.14.7 với `PYTHONUTF8=1`. Đối chiếu công thức EKF, dùng `solve` cho gain/Mahalanobis, kiểm tra FOV trước projection và kiểm tra vòng đời chỉ do LiDAR quyết định. Kiểm tra thêm tham số động, đầu vào ndarray/matrix, biên FOV/độ sâu, ma trận association rỗng, phép biến đổi tọa độ/covariance và giữ confirmed sau miss.
+- Kiểm chứng dữ liệu: Chạy compare thử frame 0–20, rồi chạy đủ frame 0–198 với seed 0 trên segment và weights học viên đã tải, bằng PyTorch CPU (`OMP_NUM_THREADS=4`, `MKL_NUM_THREADS=4`). Sáu artifacts do runner sinh, không chỉnh sửa tay. `validate_metrics_records` xác nhận 398 record gộp, 199 record mỗi mode, đủ frame, không thiếu/trùng, đúng invariant và tổng metrics; log từng mode khớp phần tương ứng trong log gộp. Cả hai mode đạt ngưỡng RMSE, precision_track, coverage và chênh lệch RMSE của rubric. Các file cấu hình local, dữ liệu và weights không commit.
 
 ## Checklist nộp
 
 - [x] **Part E–H** trong `workspace/` đã implement; `pytest student/tests -q` không còn `failed`/`xfailed`
-- [ ] Part A–D: không bắt buộc sửa (hoặc ghi chú nếu bạn đã sửa)
+- [x] Giữ nguyên Part A–D; chỉ implement các phần bắt buộc E–H
 - [x] Lần chạy chấm điểm: `--fusion compare --seed 0`, `frame_start: 0`, `frame_end: 198`
 - [x] Đã commit `student/artifacts/metrics*.json` và `student/artifacts/grade_run*.log` (không sửa tay)
-- [ ] Đã điền đủ file này, gồm khai báo AI
-- [ ] Không commit dữ liệu Waymo, weights, `paths.yaml`, API key
-- [ ] `python tools/check_submission.py` báo `KẾT QUẢ: SẴN SÀNG NỘP`
-- [ ] Đã push và nộp link repo + commit hash trên LMS ([hướng dẫn nộp](../SUBMISSION.md))
+- [x] Đã điền báo cáo và khai báo AI; SHA cuối cùng lấy sau commit CP6 như ghi ở phần thông tin
+- [x] Không commit dữ liệu Waymo, weights, `paths.yaml`, `.env`, API key
+- [x] `python tools/check_submission.py` báo `KẾT QUẢ: SẴN SÀNG NỘP` sau khi commit CP6
+- [ ] Học viên tự nộp link repo + commit hash trên LMS sau khi nhận kết quả CP6 ([hướng dẫn nộp](../SUBMISSION.md))
