@@ -64,9 +64,12 @@ Ghi rõ, kể cả khi không dùng ("Không dùng AI"). Xem [RULES.md](../RULES
 - Phạm vi hỗ trợ CP3: Cài đặt và giải thích năm hàm Part F trong association.py: mahalanobis_distance, chi2_gate, association_cost_matrix, pick_next_pair, associate_and_update. Nạp Kalman bằng load_workspace_module("kalman"), kiểm tra FOV trước khoảng cách, gán greedy rồi gọi quản lý track với sensor tường minh; không predict thêm trong association.
 - Kiểm chứng CP3: Nhóm test Mahalanobis/greedy/out_of_fov/association trong CHECKPOINTS.md đạt 9 passed, không failed/error/xfailed. Kiểm tra thêm ngưỡng chi-square theo số chiều đo và xác suất cấu hình, loại khoảng cách không hữu hạn/âm, ma trận rỗng 0x0/0x2/2x0, thứ tự greedy nhiều cặp, bảo toàn danh sách đầu vào và không gọi predict. Part H còn TODO; chưa chạy pipeline Waymo hay tạo metrics.
 
+- Phạm vi hỗ trợ CP4: Cài đặt và giải thích ba hàm Part H trong track_management.py: init_track_state_from_meas, update_track_score, should_delete_track. Khởi tạo vị trí/covariance từ đo LiDAR sau đổi sang hệ xe, vận tốc bằng 0 với phương sai sigma^2; hit/miss đổi score theo window, giữ confirmed sau miss và xoá theo score hoặc phương sai ngang. Từ chối khởi tạo bằng đo camera.
+- Kiểm chứng CP4: Chạy toàn bộ student/tests trên Python 3.14.7 với PYTHONUTF8=1: 128 passed, không failed/error/xfailed. Các test xác nhận camera không đổi score/khởi tạo/xoá track, miss ngoài FOV LiDAR không giảm score và confirmed được giữ sau miss. Kiểm tra thêm khởi tạo với phép xoay 90 độ và tịnh tiến, covariance vị trí có nhiễu khác nhau theo trục, bình phương sigma vận tốc, window cấu hình, đầu vào ndarray/matrix và bảo toàn đo gốc. Toàn bộ Part E–H đã hoàn thành; chưa chạy pipeline Waymo hay tạo metrics.
+
 ## Checklist nộp
 
-- [ ] **Part E–H** trong `workspace/` đã implement; `pytest student/tests -q` không còn `failed`/`xfailed`
+- [x] **Part E–H** trong `workspace/` đã implement; `pytest student/tests -q` không còn `failed`/`xfailed`
 - [ ] Part A–D: không bắt buộc sửa (hoặc ghi chú nếu bạn đã sửa)
 - [ ] Lần chạy chấm điểm: `--fusion compare --seed 0`, `frame_start: 0`, `frame_end: 198`
 - [ ] Đã commit `student/artifacts/metrics*.json` và `student/artifacts/grade_run*.log` (không sửa tay)
