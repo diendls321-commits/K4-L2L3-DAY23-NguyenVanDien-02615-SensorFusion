@@ -4,10 +4,10 @@
 
 ## Thông tin học viên
 
-- Họ tên:
-- MSSV:
-- Email:
-- Link repo (fork):
+- Họ tên: Nguyễn Văn Diện
+- MSSV: 02615
+- Email: diendls321@gmail.com
+- Link repo (fork): https://github.com/diendls321-commits/K4-L2L3-DAY23-NguyenVanDien-02615-SensorFusion
 - Commit hash nộp (`git rev-parse HEAD`):
 
 ## Tóm tắt kết quả
@@ -51,15 +51,15 @@ File per-mode `metrics_lidar.json`, `metrics_fused.json`, `grade_run_lidar.log`,
 Liệt kê phần bonus đã làm, file bằng chứng trong `student/bonus/` và kết quả chính
 (xem [RUBRIC.md](../RUBRIC.md) mục 2). Không làm thì ghi "Không".
 
-- 
+- Không.
 
 ## Khai báo sử dụng AI (bắt buộc)
 
 Ghi rõ, kể cả khi không dùng ("Không dùng AI"). Xem [RULES.md](../RULES.md) mục 2.
 
-- Công cụ đã dùng (ChatGPT, Copilot, Claude, …):
-- Dùng cho phần nào (hàm, câu hỏi, debug):
-- Cách bạn đã kiểm tra lại (pytest, chạy Waymo, đối chiếu công thức):
+- Công cụ đã dùng (ChatGPT, Copilot, Claude, …): OpenAI Codex.
+- Dùng cho phần nào (hàm, câu hỏi, debug): CP0 — đọc yêu cầu, chuẩn bị môi trường Python 3.14, cấu hình đường dẫn dữ liệu và điền thông tin học viên. Cập nhật phạm vi hỗ trợ sau mỗi checkpoint.
+- Cách bạn đã kiểm tra lại (pytest, chạy Waymo, đối chiếu công thức): CP0 — chạy bộ test gốc trên Python 3.14.7 với PYTHONUTF8=1: 82 passed, 46 xfailed do Part E–H còn TODO, không có failed/error; CLI fusion-run-lab --help chạy được. Đọc thành công frame đầu của segment đã tải và nạp được 186 tensor trong weights bằng torch.load(weights_only=True). Chưa chạy pipeline Waymo hay tạo metrics; cập nhật kiểm chứng sau từng checkpoint.
 
 ## Checklist nộp
 
