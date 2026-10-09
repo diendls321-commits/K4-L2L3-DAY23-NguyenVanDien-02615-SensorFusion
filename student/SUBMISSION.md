@@ -12,11 +12,11 @@
 
 ## Tóm tắt kết quả
 
-- `fusion_mode` (bắt buộc `compare`), `frames`, `segment`, `seed`:
-- `detection.precision`, `detection.recall`, `detection.tp/fp/fn`:
-- `tracking.lidar.rmse`, `matches`, `sum_sq_err`, `ghost_track_frames`, `missed_gt_frames`, `mean_confirmed_tracks`:
-- `tracking.fused.rmse`, `matches`, `sum_sq_err`, `ghost_track_frames`, `missed_gt_frames`, `mean_confirmed_tracks`:
-- Giải thích khác biệt hai mode, đọc RMSE cùng số ghép và ghost/miss:
+- `fusion_mode` (bắt buộc `compare`), `frames`, `segment`, `seed`: compare; [0, 198] (199 frame mỗi mode); training_segment-1005081002024129653_5313_150_5333_150_with_camera_labels.tfrecord; seed = 0.
+- `detection.precision`, `detection.recall`, `detection.tp/fp/fn`: 0.9700934579439252; 0.7004048582995951; tp = 519, fp = 16, fn = 222.
+- `tracking.lidar.rmse`, `matches`, `sum_sq_err`, `ghost_track_frames`, `missed_gt_frames`, `mean_confirmed_tracks`: 0.15032268781360134 m; 502; 11.343649056695735 m²; 0; 239; 2.522613065326633.
+- `tracking.fused.rmse`, `matches`, `sum_sq_err`, `ghost_track_frames`, `missed_gt_frames`, `mean_confirmed_tracks`: 0.1358667883353908 m; 502; 9.26681165463209 m²; 0; 239; 2.522613065326633.
+- Giải thích khác biệt hai mode, đọc RMSE cùng số ghép và ghost/miss: Fused giảm RMSE 0.014455899478210549 m (khoảng 9.62%) so với LiDAR, đồng thời số cặp ghép đều là 502, ghost đều bằng 0 và miss đều là 239. Trong lần chạy này camera cải thiện sai số vị trí của các cặp được ghép, không tăng số lượng cặp ghép hoặc giảm ghost/miss. Cả hai mode có precision_track = 1.0 và coverage = 502/519 = 0.9672447013487476 theo rubric; RMSE đều dưới 0.45 m và chênh lệch fused − lidar nhỏ hơn 0.05 m. Log có tổng 741 lượt GT hợp lệ; detector có 222 FN, còn tracker có 239 miss. Đây là hai phép đánh giá khác nhau, nên các tổng này không đủ để xác định từng miss thuộc nguyên nhân nào. Camera lấy tâm hộp ground-truth FRONT thêm nhiễu theo seed; kết quả chỉ phản ánh thử nghiệm fusion trong lab.
 
 Chạy từ root repo:
 
@@ -67,12 +67,15 @@ Ghi rõ, kể cả khi không dùng ("Không dùng AI"). Xem [RULES.md](../RULES
 - Phạm vi hỗ trợ CP4: Cài đặt và giải thích ba hàm Part H trong track_management.py: init_track_state_from_meas, update_track_score, should_delete_track. Khởi tạo vị trí/covariance từ đo LiDAR sau đổi sang hệ xe, vận tốc bằng 0 với phương sai sigma^2; hit/miss đổi score theo window, giữ confirmed sau miss và xoá theo score hoặc phương sai ngang. Từ chối khởi tạo bằng đo camera.
 - Kiểm chứng CP4: Chạy toàn bộ student/tests trên Python 3.14.7 với PYTHONUTF8=1: 128 passed, không failed/error/xfailed. Các test xác nhận camera không đổi score/khởi tạo/xoá track, miss ngoài FOV LiDAR không giảm score và confirmed được giữ sau miss. Kiểm tra thêm khởi tạo với phép xoay 90 độ và tịnh tiến, covariance vị trí có nhiễu khác nhau theo trục, bình phương sigma vận tốc, window cấu hình, đầu vào ndarray/matrix và bảo toàn đo gốc. Toàn bộ Part E–H đã hoàn thành; chưa chạy pipeline Waymo hay tạo metrics.
 
+- Phạm vi hỗ trợ CP5: Chạy thử compare trên frame 0–20, sau đó đặt paths.yaml thành frame 0–198 và chạy compare với seed 0 trên segment/weights đã tải. Chạy Python 3.14.7, PyTorch CPU với OMP_NUM_THREADS=4 và MKL_NUM_THREADS=4; không sửa thuật toán hay tham số tracking. Điền kết quả và nhận xét từ metrics/log thực tế.
+- Kiểm chứng CP5: Đủ sáu artifacts do runner sinh; validate_metrics_records xác nhận file gộp có 398 record và mỗi mode có 199 record, đúng frame 0–198, không thiếu/trùng, mọi invariant và tổng khớp metrics. Hai log riêng đúng bằng phần mode tương ứng trong log gộp; detection, seed và segment nhất quán giữa hai mode. Cả hai mode đạt ngưỡng RMSE ≤ 0.45 m, precision_track ≥ 0.75, coverage ≥ 0.70 và fused − lidar ≤ 0.05 m. Không sửa tay artifacts; .env, paths.yaml, dữ liệu và weights chỉ lưu local.
+
 ## Checklist nộp
 
 - [x] **Part E–H** trong `workspace/` đã implement; `pytest student/tests -q` không còn `failed`/`xfailed`
 - [ ] Part A–D: không bắt buộc sửa (hoặc ghi chú nếu bạn đã sửa)
-- [ ] Lần chạy chấm điểm: `--fusion compare --seed 0`, `frame_start: 0`, `frame_end: 198`
-- [ ] Đã commit `student/artifacts/metrics*.json` và `student/artifacts/grade_run*.log` (không sửa tay)
+- [x] Lần chạy chấm điểm: `--fusion compare --seed 0`, `frame_start: 0`, `frame_end: 198`
+- [x] Đã commit `student/artifacts/metrics*.json` và `student/artifacts/grade_run*.log` (không sửa tay)
 - [ ] Đã điền đủ file này, gồm khai báo AI
 - [ ] Không commit dữ liệu Waymo, weights, `paths.yaml`, API key
 - [ ] `python tools/check_submission.py` báo `KẾT QUẢ: SẴN SÀNG NỘP`
